@@ -5,10 +5,6 @@ use std::os::raw::c_int;
 
 pub type lbfgsfloatval_t = f64;
 
-extern "C" {
-    fn run(n: c_int, x_array: *mut f64, param: *mut LBFGSParameter) -> c_int;
-}
-
 #[repr(C)]
 #[derive(Debug)]
 pub struct LBFGSParameter {
@@ -75,6 +71,10 @@ const N: usize = 100;
 // main
 
 // [[file:~/Workspace/Programming/rust-libs/rust-ffi/rust-ffi.note::*main][main:1]]
+extern "C" {
+    fn run(n: c_int, x_array: *mut lbfgsfloatval_t, ptr_fx: *mut lbfgsfloatval_t, param: *mut LBFGSParameter) -> c_int;
+}
+
 fn main() {
     let mut x = [0.0; N];
     for i in (0..N).step_by(2) {
@@ -82,12 +82,18 @@ fn main() {
         x[i+1] = 1.0;
     }
 
+    let mut fx: lbfgsfloatval_t = 0.0;
     let mut param = LBFGSParameter::default();
     let ret = unsafe {
-        run(100, x.as_mut_ptr(), &mut param)
+        run(100,
+            x.as_mut_ptr(),
+            &mut fx,
+            &mut param,
+        )
     };
 
-    // println!("  fx = {}, x[0] = {}, x[1] = {}\n", fx, x[0], x[1]);
-    println!(" rust ret = {}, x[0] = {}, x[1] = {}\n", ret, x[0], x[1]);
+    // Report the result.
+    println!("rust  fx = {}, x[0] = {}, x[1] = {}\n", fx, x[0], x[1]);
+    println!("L-BFGS optimization terminated with status code = {:?}", ret);
 }
 // main:1 ends here
