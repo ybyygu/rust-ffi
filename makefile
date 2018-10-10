@@ -1,6 +1,6 @@
 # makefile
 # :PROPERTIES:
-# :header-args: :tangle makefile
+# :header-args: :tangle src/makefile
 # :END:
 
 # [[file:~/Workspace/Programming/rust-libs/rust-ffi/rust-ffi.note::*makefile][makefile:1]]
@@ -11,6 +11,6 @@ clean:
 cc:
 	clang -shared sample.c liblbfgs.so -o libsample.so
 
-run:
+run: clean make
 	LD_LIBRARY_PATH=. ./test
 # makefile:1 ends here
