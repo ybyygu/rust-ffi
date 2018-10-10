@@ -48,24 +48,19 @@ static int progress(
   return 0;
 }
 
-int run(lbfgsfloatval_t *x, int n)
+int run(int n, lbfgsfloatval_t *x, lbfgs_parameter_t *param)
 {
   if (x == NULL) {
     printf("ERROR: Failed to allocate a memory block for variables.\n");
     return 1;
   }
 
-  /* Initialize the parameters for the L-BFGS optimization. */
-  lbfgs_parameter_t param;
-  lbfgs_parameter_init(&param);
-  /*param.linesearch = LBFGS_LINESEARCH_BACKTRACKING;*/
-
   /*
     Start the L-BFGS optimization; this will invoke the callback functions
     evaluate() and progress() when necessary.
   */
   lbfgsfloatval_t fx;
-  int ret = lbfgs(n, x, &fx, evaluate, progress, NULL, &param);
+  int ret = lbfgs(n, x, &fx, evaluate, progress, NULL, param);
 
   /* Report the result. */
   printf("  fx = %f, x[0] = %f, x[1] = %f\n", fx, x[0], x[1]);

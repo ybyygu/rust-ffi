@@ -4,13 +4,13 @@
 # :END:
 
 # [[file:~/Workspace/Programming/rust-libs/rust-ffi/rust-ffi.note::*makefile][makefile:1]]
-make:
+rust: cc
 	rustc test.rs -o test -L. -lsample
 clean:
 	rm *.o -f
 cc:
 	clang -shared sample.c liblbfgs.so -o libsample.so
 
-run: clean make
+run: clean rust
 	LD_LIBRARY_PATH=. ./test
 # makefile:1 ends here
