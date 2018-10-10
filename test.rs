@@ -106,7 +106,7 @@ pub type CbProgress = ::std::option::Option<
 >;
 
 #[no_mangle]
-unsafe extern "C" fn progress(
+pub unsafe extern "C" fn progress(
         instance : *mut c_void,
         x        : *const lbfgsfloatval_t,
         g        : *const lbfgsfloatval_t,
@@ -123,20 +123,20 @@ unsafe extern "C" fn progress(
 
     let n = n as usize;
     // convert pointer to native data type
-    let x = unsafe {
-        ::std::slice::from_raw_parts(x, n)
-    };
+    let x = ::std::slice::from_raw_parts(x, n);
 
     // convert pointer to native data type
-    let g = unsafe {
-        ::std::slice::from_raw_parts(g, n)
-    };
+    let g = ::std::slice::from_raw_parts(g, n);
 
     println!("Iteration {}:", k);
     println!("  fx = {}, x[0] = {}, x[1] = {}", fx, x[0], x[1]);
     println!("  xnorm = {}, gnorm = {}, step = {}", xnorm, gnorm, step);
     println!("");
-    return 0;
+    if gnorm < 7. {
+        return 0
+    } else {
+        return 0
+    }
 }
 // progress:1 ends here
 
@@ -169,34 +169,32 @@ pub type CbEvaluate = ::std::option::Option<
 >;
 
 #[no_mangle]
-unsafe extern "C" fn evaluate(instance: *mut c_void,
-                       x: *const lbfgsfloatval_t,
-                       g: *mut lbfgsfloatval_t,
-                       n: c_int,
-                       step: lbfgsfloatval_t) -> lbfgsfloatval_t
+pub unsafe extern "C" fn evaluate(instance: *mut c_void,
+                                  x: *const lbfgsfloatval_t,
+                                  g: *mut lbfgsfloatval_t,
+                                  n: c_int,
+                                  step: lbfgsfloatval_t) -> lbfgsfloatval_t
 {
     assert!(!x.is_null(), "Null pointer in evaluate()");
     assert!(!g.is_null(), "Null pointer in evaluate()");
 
     let n = n as usize;
     // convert pointer to native data type
-    let x = unsafe {
-        ::std::slice::from_raw_parts(x, n)
-    };
+    let x = ::std::slice::from_raw_parts(x, n);
 
     // convert pointer to native data type
-    let mut g = unsafe {
-        Vec::from_raw_parts(g, n, n)
-    };
+    let mut g = ::std::slice::from_raw_parts_mut(g, n);
 
     let mut fx: lbfgsfloatval_t = 0.0;
     for i in (0..n).step_by(2) {
-        let t1: lbfgsfloatval_t = 1.0 - x[i];
-        let t2: lbfgsfloatval_t = 10.0 * (x[i+1] - x[i] * x[i]);
+        let t1 = 1.0 - x[i];
+        let t2 = 10.0 * (x[i+1] - x[i] * x[i]);
         g[i+1] = 20.0 * t2;
         g[i] = -2.0 * (x[i] * g[i+1] + t1);
         fx += t1 * t1 + t2 * t2;
     }
+
+    // ::std::mem::forget(g);
 
     fx
 }
@@ -206,10 +204,10 @@ unsafe extern "C" fn evaluate(instance: *mut c_void,
 
 // [[file:~/Workspace/Programming/rust-libs/rust-ffi/rust-ffi.note::*main][main:1]]
 extern "C" {
-    fn run(n: c_int,
+    fn lbfgs(n: c_int,
            x_array: *mut lbfgsfloatval_t,
            ptr_fx: *mut lbfgsfloatval_t,
-           // proc_evaluate: CbEvaluate,
+           proc_evaluate: CbEvaluate,
            proc_progress: CbProgress,
            instance: *mut c_void,
            param: *mut LBFGSParameter) -> c_int;
@@ -225,10 +223,10 @@ fn main() {
     let mut fx: lbfgsfloatval_t = 0.0;
     let mut param = LBFGSParameter::default();
     let ret = unsafe {
-        run(N as i32,
+        lbfgs(N as i32,
             x.as_mut_ptr(),
             &mut fx,
-            // Some(evaluate),
+            Some(evaluate),
             Some(progress),
             null_mut(),
             &mut param,
