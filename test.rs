@@ -1,7 +1,8 @@
 // base
 
 // [[file:~/Workspace/Programming/rust-libs/rust-ffi/rust-ffi.note::*base][base:1]]
-use std::os::raw::c_int;
+use std::ptr::null_mut;
+use std::os::raw::{c_int, c_void};
 
 pub type lbfgsfloatval_t = f64;
 
@@ -68,11 +69,150 @@ impl Default for LBFGSParameter {
 const N: usize = 100;
 // base:1 ends here
 
+// progress
+
+// [[file:~/Workspace/Programming/rust-libs/rust-ffi/rust-ffi.note::*progress][progress:1]]
+/// Callback interface to receive the progress of the optimization process.
+///
+///  The lbfgs() function call this function for each iteration. Implementing
+///  this function, a client program can store or display the current progress
+///  of the optimization process.
+///
+///  @param  instance    The user data sent for lbfgs() function by the client.
+///  @param  x           The current values of variables.
+///  @param  g           The current gradient values of variables.
+///  @param  fx          The current value of the objective function.
+///  @param  xnorm       The Euclidean norm of the variables.
+///  @param  gnorm       The Euclidean norm of the gradients.
+///  @param  step        The line-search step used for this iteration.
+///  @param  n           The number of variables.
+///  @param  k           The iteration count.
+///  @param  ls          The number of evaluations called for this iteration.
+///  @retval int         Zero to continue the optimization process. Returning a
+///                      non-zero value will cancel the optimization process.
+pub type CbProgress = ::std::option::Option<
+    unsafe extern "C" fn(
+        instance: *mut ::std::os::raw::c_void,
+        x: *const lbfgsfloatval_t,
+        g: *const lbfgsfloatval_t,
+        fx: lbfgsfloatval_t,
+        xnorm: lbfgsfloatval_t,
+        gnorm: lbfgsfloatval_t,
+        step: lbfgsfloatval_t,
+        n: ::std::os::raw::c_int,
+        k: ::std::os::raw::c_int,
+        ls: ::std::os::raw::c_int,
+    ) -> ::std::os::raw::c_int,
+>;
+
+#[no_mangle]
+unsafe extern "C" fn progress(
+        instance : *mut c_void,
+        x        : *const lbfgsfloatval_t,
+        g        : *const lbfgsfloatval_t,
+        fx       : lbfgsfloatval_t,
+        xnorm    : lbfgsfloatval_t,
+        gnorm    : lbfgsfloatval_t,
+        step     : lbfgsfloatval_t,
+        n        : c_int,
+        k        : c_int,
+        ls       : c_int) -> c_int
+{
+    assert!(!x.is_null(), "Null pointer in progress()");
+    assert!(!g.is_null(), "Null pointer in progress()");
+
+    let n = n as usize;
+    // convert pointer to native data type
+    let x = unsafe {
+        ::std::slice::from_raw_parts(x, n)
+    };
+
+    // convert pointer to native data type
+    let g = unsafe {
+        ::std::slice::from_raw_parts(g, n)
+    };
+
+    println!("Iteration {}:", k);
+    println!("  fx = {}, x[0] = {}, x[1] = {}", fx, x[0], x[1]);
+    println!("  xnorm = {}, gnorm = {}, step = {}", xnorm, gnorm, step);
+    println!("");
+    return 0;
+}
+// progress:1 ends here
+
+// evalulate
+
+// [[file:~/Workspace/Programming/rust-libs/rust-ffi/rust-ffi.note::*evalulate][evalulate:1]]
+/// Callback interface to provide objective function and gradient evaluations.
+///
+///  The lbfgs() function call this function to obtain the values of objective
+///  function and its gradients when needed. A client program must implement
+///  this function to evaluate the values of the objective function and its
+///  gradients, given current values of variables.
+///
+///  @param  instance    The user data sent for lbfgs() function by the client.
+///  @param  x           The current values of variables.
+///  @param  g           The gradient vector. The callback function must compute
+///                      the gradient values for the current variables.
+///  @param  n           The number of variables.
+///  @param  step        The current step of the line search routine.
+///  @retval lbfgsfloatval_t The value of the objective function for the current
+///                          variables.
+pub type CbEvaluate = ::std::option::Option<
+    unsafe extern "C" fn(
+        instance: *mut ::std::os::raw::c_void,
+        x: *const lbfgsfloatval_t,
+        g: *mut lbfgsfloatval_t,
+        n: ::std::os::raw::c_int,
+        step: lbfgsfloatval_t,
+    ) -> lbfgsfloatval_t,
+>;
+
+#[no_mangle]
+unsafe extern "C" fn evaluate(instance: *mut c_void,
+                       x: *const lbfgsfloatval_t,
+                       g: *mut lbfgsfloatval_t,
+                       n: c_int,
+                       step: lbfgsfloatval_t) -> lbfgsfloatval_t
+{
+    assert!(!x.is_null(), "Null pointer in evaluate()");
+    assert!(!g.is_null(), "Null pointer in evaluate()");
+
+    let n = n as usize;
+    // convert pointer to native data type
+    let x = unsafe {
+        ::std::slice::from_raw_parts(x, n)
+    };
+
+    // convert pointer to native data type
+    let mut g = unsafe {
+        Vec::from_raw_parts(g, n, n)
+    };
+
+    let mut fx: lbfgsfloatval_t = 0.0;
+    for i in (0..n).step_by(2) {
+        let t1: lbfgsfloatval_t = 1.0 - x[i];
+        let t2: lbfgsfloatval_t = 10.0 * (x[i+1] - x[i] * x[i]);
+        g[i+1] = 20.0 * t2;
+        g[i] = -2.0 * (x[i] * g[i+1] + t1);
+        fx += t1 * t1 + t2 * t2;
+    }
+
+    fx
+}
+// evalulate:1 ends here
+
 // main
 
 // [[file:~/Workspace/Programming/rust-libs/rust-ffi/rust-ffi.note::*main][main:1]]
 extern "C" {
-    fn run(n: c_int, x_array: *mut lbfgsfloatval_t, ptr_fx: *mut lbfgsfloatval_t, param: *mut LBFGSParameter) -> c_int;
+    fn run(n: c_int,
+           x_array: *mut lbfgsfloatval_t,
+           ptr_fx: *mut lbfgsfloatval_t,
+           // proc_evaluate: CbEvaluate,
+           proc_progress: CbProgress,
+           instance: *mut c_void,
+           param: *mut LBFGSParameter) -> c_int;
 }
 
 fn main() {
@@ -85,9 +225,12 @@ fn main() {
     let mut fx: lbfgsfloatval_t = 0.0;
     let mut param = LBFGSParameter::default();
     let ret = unsafe {
-        run(100,
+        run(N as i32,
             x.as_mut_ptr(),
             &mut fx,
+            // Some(evaluate),
+            Some(progress),
+            null_mut(),
             &mut param,
         )
     };
